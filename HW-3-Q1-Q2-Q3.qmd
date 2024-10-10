@@ -1,0 +1,549 @@
+---
+title: "HW-3"
+format: 
+  pdf:
+    keep-tex: true
+    documentclass: article
+    fontsize: 12pt  # You can adjust the font size
+    header-includes:
+      - \usepackage{setspace}  
+      - \setstretch{1.2}        
+      - \usepackage{geometry}   
+      - \geometry{margin=0.6in}   
+      - \usepackage{parskip}     
+      - \setlength{\parskip}{0.5em}  
+      - \setlength{\parindent}{0.1em}   
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+         
+      
+editor: visual
+---
+
+## Homework - 3 - STATS 506
+
+### Vasudha Rohatgi
+
+#### Problem - 1
+
+> I have made extensive use of the pipe operator **`%>%`** throughout this exercise to chain a sequence of operations
+
+```{r}
+library(haven)
+library(dplyr)
+
+vix <- read_xpt("VIX_D.XPT")
+
+## ncol(vix) --> 57
+
+demo <- read_xpt("DEMO_D.XPT")
+vision_data <- merge(vix, demo, by = "SEQN")
+nrow(vision_data)
+
+## ncol(vision_data) --> 99 
+## summary.data.frame(vision_data)  
+  
+```
+
+```{r}
+vision_df<- data.frame(vision_data)
+nrow(vision_df)
+ncol(vision_df)
+str(vision_df)
+```
+
+```{r}
+## head(vision_df)
+```
+
+These are the actual column names, in which I have highlighted the ones I used for computation
+
+![](images/clipboard-1760357132.png)
+
+#### Create age brackets and display the data
+
+```{r}
+## Filtering out NA valued rows for column VIQ220
+vision_df <- vision_df %>%filter(!is.na(VIQ220))
+
+## Filtering out NA values for some additional columns 
+vision_df <- vision_df %>%filter(!is.na(RIAGENDR))
+vision_df <- vision_df %>%filter(!is.na(RIDAGEYR))
+vision_df <- vision_df %>%filter(!is.na(INDFMPIR))
+vision_df <- vision_df %>%filter(!is.na(RIDRETH1))
+```
+
+```{r}
+## VIQ220 isn't mapped as binary, so we'll convert 
+
+vision_df <- vision_df %>%
+  mutate(VIQ220 = ifelse(VIQ220 == "1", 1, 0))  
+
+vision_df$VIQ220 <- as.numeric(vision_df$VIQ220)
+```
+
+```{r}
+
+vision_df <- vision_df %>% mutate(age_bracket = cut(RIDAGEYR, breaks = seq(0, 100, by = 10), right = FALSE, labels = paste0(seq(0, 90, by = 10), "-", seq(9, 99, by = 10))))
+
+# Step 5: Calculate proportions of glasses/contact lenses wearers
+proportion_table <- vision_df %>%
+  group_by(age_bracket) %>%
+  summarise(
+    total_respondents = n(),
+    wear_glasses_count = sum(VIQ220 == 1, na.rm = TRUE),  # Assuming 'VIQ220' is binary (1 = yes)
+    proportion_wear_glasses = wear_glasses_count / total_respondents
+  )
+
+# Display the proportion table
+print(proportion_table)
+
+```
+
+#### Fit logistic regression models
+
+```{r}
+
+# Model 1: Predicting glasses wear based on RIDAGEYR
+model1 <- glm(VIQ220 ~ RIDAGEYR, data = vision_df, family = binomial)
+
+# Model 2: Predicting glasses wear based on RIDAGEYR, race, and gender
+model2 <- glm(VIQ220 ~ RIDAGEYR + RIDRETH1 + RIAGENDR, data = vision_df, family = binomial)
+
+# Model 3: Predicting glasses wear based on RIDAGEYR, race, gender, and poverty income ratio
+model3 <- glm(VIQ220 ~ RIDAGEYR + RIDRETH1 + RIAGENDR + INDFMPIR, data = vision_df, family = binomial)
+
+
+```
+
+```{r}
+summary(model1)
+
+```
+
+```{r}
+summary(model2)
+```
+
+```{r}
+summary(model3)
+```
+
+#### Now we can -
+
+-   **Convert coefficients to odds ratios** using the exponential function.
+
+-   **Create a summary table** for the odds ratios along with additional information about the models.
+
+```{r}
+library(dplyr)
+library(knitr)
+
+# Create a function to extract odds ratios and prepare results
+get_odds_ratios <- function(model) {
+  odds_ratios <- exp(coef(model))  # Exponential of coefficients for odds ratios
+  odds_ratios_df <- data.frame(
+    Term = names(odds_ratios),
+    Odds_Ratio = odds_ratios
+  )
+  return(odds_ratios_df)
+}
+
+# Prepare a summary table for model results
+model_results <- data.frame(
+  Model = c("Age-Based", "Age,Race & Gender", "Age,Race,Gender & Poverty-Line"),
+  Sample_Size = c(nrow(vision_df), nrow(vision_df), nrow(vision_df)),
+  AIC = c(AIC(model1), AIC(model2), AIC(model3))
+)
+```
+
+```{r}
+# Extract odds ratios for each model
+odds_ratios_model1 <- get_odds_ratios(model1)
+odds_ratios_model2 <- get_odds_ratios(model2)
+odds_ratios_model3 <- get_odds_ratios(model3)
+
+```
+
+```{r}
+# Combine odds ratios into a single data frame with model names
+odds_ratios_combined <- bind_rows(
+  odds_ratios_model1 %>% mutate(Model = "Age-Based"),
+  odds_ratios_model2 %>% mutate(Model = "Age,Race & Gender"),
+  odds_ratios_model3 %>% mutate(Model = "Age,Race,Gender & Poverty-Line"))
+```
+
+```{r}
+# Combine model results with odds ratios for a final summary
+final_summary <- model_results %>%
+  left_join(odds_ratios_combined, by = c("Model" = "Model")) %>%
+  select(Model, Sample_Size, AIC, Term, Odds_Ratio)
+
+# Print the final summary in a readable format
+kable(final_summary, caption = "Logistic Regression Models and Odds Ratios", digits = 3)
+```
+
+```{r}
+# To ensure that RIAGENDR is a factor with two levels
+vision_df$Gender <- as.factor(vision_df$RIAGENDR)
+levels(vision_df$RIAGENDR)  # Check the levels to make sure it's correct
+```
+
+```{r}
+# Logistic regression for RIAGENDR difference
+gender_model <- glm(VIQ220  ~ RIAGENDR, data = vision_df, family = binomial)
+gender_summary <- summary(gender_model)
+
+# Display the logistic regression results
+print(gender_summary)
+```
+
+```{r}
+# Proportion test: summarize gender-based glasses usage
+gender_proportions <- vision_df %>%
+  group_by(RIAGENDR) %>%
+  summarise(
+    total_respondents = n(),
+    wear_glasses_count = sum(VIQ220 == 1, na.rm = TRUE)
+  )
+
+# Proportion test between genders
+prop_test_result <- prop.test(gender_proportions$wear_glasses_count, gender_proportions$total_respondents)
+
+# Display the results of the proportion test
+print(prop_test_result)
+```
+
+------------------------------------------------------------------------
+
+#### Problem-2
+
+Here, I will first establish connection to the SQL server so that I can run SQL queries
+
+```{r}
+library(DBI)
+library(RSQLite)
+
+db_file <- "sakila_master.db"
+conn <- dbConnect(SQLite(), dbname = db_file)
+```
+
+```{r}
+tables <- dbListTables(conn)
+print(tables)
+```
+
+```{sql connection=conn}
+SELECT release_year, COUNT(*) AS movie_count
+FROM film
+WHERE release_year = (SELECT MIN(release_year) FROM film)
+GROUP BY release_year;
+```
+
+```         
+```
+
+#### Now that test run is done, we can run all the queries sequentially and through R:
+
+I have used one executable cell to run all the queries in order to avoid SQL database connection errors
+
+```{r}
+
+## few redundant calls but I added them because code was running into errors
+
+library(RSQLite)
+library(dplyr)
+
+db_file <- "sakila_master.db"  
+
+con <- dbConnect(SQLite(), dbname = db_file)
+
+
+if (is.null(con)) {
+    stop("Failed to connect to the database.")
+}
+
+## Oldest Movie Data Query 
+
+query <- "
+SELECT release_year, COUNT(*) AS movie_count 
+FROM film 
+WHERE release_year = (SELECT MIN(release_year) FROM film) 
+GROUP BY release_year;"
+
+## Genre Data Query  
+
+genre_query <- "
+SELECT category.name AS genre, COUNT(*) AS movie_count 
+FROM film 
+JOIN film_category ON film.film_id = film_category.film_id 
+JOIN category ON film_category.category_id = category.category_id 
+GROUP BY category.name;"
+
+## Query to retrieve customer counts by country
+
+country_customer_query <- "
+  SELECT country.country AS country_name, COUNT(customer.customer_id) AS customer_count
+  FROM country
+  JOIN city ON country.country_id = city.country_id
+  JOIN address ON city.city_id = address.city_id
+  JOIN customer ON address.address_id = customer.address_id
+  GROUP BY country.country;
+"
+
+country_customer_df <- dbGetQuery(con, country_customer_query)
+
+# Filter countries with exactly 13 customers
+countries_with_13_customers <- subset(country_customer_df, customer_count == 13)
+print(countries_with_13_customers)
+
+
+oldest_movie_data <- dbGetQuery(con, query)
+genre_df <- dbGetQuery(con, genre_query)
+
+
+print(oldest_movie_data)
+
+least_common_genre <- genre_df[which.min(genre_df$movie_count), ]
+print(least_common_genre)
+
+
+# Disconnect from the database
+dbDisconnect(con)
+
+```
+
+------------------------------------------------------------------------
+
+### Problem - 3 
+
+> install.packages("benford.analysis")
+> install.packages("BenfordTests")
+
+Using a similar approach as in previous problems, I will re-introduce libraries into the global environment and load the downloaded us-500 csv file into a dataframe
+
+```{r}
+
+library(ggplot2)      
+library(benford.analysis)
+library(dplyr)         
+
+
+data_500 <- read.csv("us-500.csv")
+print(data_500[1:5,])
+```
+
+#### 1. Proportion of email addresses with TLD ".com"
+
+```{r}
+
+com_proportion <- data_500 %>%
+  mutate(TLD = sub(".*@.*\\.", "", email)) %>%  # Extract TLD from email
+  summarise(Proportion_Com = mean(TLD == "com", na.rm = TRUE)) 
+
+print(paste("Proportion of emails with .com TLD:", com_proportion$Proportion_Com))
+```
+
+#### 2. Proportion of email addresses with non-alphanumeric characters
+
+```{r}
+
+non_alphanumeric_proportion <- data_500 %>%
+  mutate(Non_Alphanumeric = grepl("[^a-zA-Z0-9@.]", email)) %>%  
+  summarise(Proportion_Non_Alpha = mean(Non_Alphanumeric, na.rm = TRUE)) 
+
+print(paste("Proportion of emails with non-alphanumeric characters:", non_alphanumeric_proportion$Proportion_Non_Alpha))
+```
+
+#### 3. Top 5 most common area codes
+
+We can compute this for column phone1 and phone2 separately
+
+```{r}
+
+top_area_codes <- data_500 %>%
+  mutate(Area_Code = substr(phone1, 1, 3)) %>%  
+  group_by(Area_Code) %>%                        
+  summarise(Count = n(), .groups = "drop") %>%  
+  arrange(desc(Count)) %>%                       
+  head(5)                                        
+
+print("Top 5 records with area codes:")
+print(top_area_codes)
+
+
+```
+
+```{r}
+top_area_codes <- data_500 %>%
+  mutate(Area_Code = substr(phone2, 1, 3)) %>%  
+  count(Area_Code) %>%                         
+  arrange(desc(n)) %>%                        
+  head(5)                                      
+
+print("Top 5 most common area codes:")
+print(top_area_codes)
+```
+
+#### 4. Histogram of the log of apartment numbers
+
+```{r}
+print(head(data_500$address, 500))
+```
+
+#### **Here I have tried different methods of pattern matching to determine which is yielding maximum apartment numbers** 
+
+```{r}
+
+library(stringr)
+
+addresses <- c(data_500$address) 
+
+pattern <- "^\\d{1,5}\\s+([NSEW]?\\s*)?([\\w\\s\\.]+)\\s+(St|Ave|Blvd|Rd|Ct|Ln|Dr|Pl|Ter|Pky|Cir|Way|Hwy|Bnd|Pkwy|Apt|Suite)?\\s*(#\\d{1,5})?$"
+
+pattern2<- "(Apt\\s*\\d+|Apartment\\s*\\d+|#\\d+|Apt\\s*[A-Za-z]\\d+|\\d+[A-Za-z])"
+
+# Extracting apartment numbers
+
+apartment_numbers <- sapply(addresses, function(address) {
+    match <- regmatches(address, regexec(pattern2, address))
+    # Extract the second or third capturing group, prioritizing the one that exists
+    if (length(match[[1]]) > 1) {
+        return(ifelse(!is.na(match[[1]][3]), match[[1]][3], match[[1]][2]))
+    }
+    return(NA)  # Return NA if no match
+})
+
+typeof(apartment_numbers)
+```
+
+```{r}
+## determining apartment number using REGEX
+data_apartments <- data_500 %>%
+  mutate(Apartment_Number = str_extract(address, "^\\d{1,5}\\s+([NSEW]?\\s*)?([\\w\\s\\.]+)\\s+(St|Ave|Blvd|Rd|Ct|Ln|Dr|Pl|Ter|Pky|Cir|Way|Hwy|Bnd|Pkwy|Apt|Suite)?\\s*(#\\d{1,5})?$")) %>%
+  filter(!is.na(Apartment_Number))
+  
+nrow(data_apartments)
+```
+
+```{r}
+data_apartments <- data_500 %>%
+  mutate(Apartment_Number = str_extract(address, "(Apt\\s*\\d+|Apartment\\s*\\d+|#\\d+|Apt\\s*[A-Za-z]\\d+|\\d+[A-Za-z])")) %>%
+  mutate(Apartment_Number = str_extract(Apartment_Number, "\\d+")) %>%
+  filter(!is.na(Apartment_Number))
+```
+
+```{r}
+print(data_apartments)
+
+```
+
+#### Finally, we are able to extract 149 apartment numbers out of 500 addresses, which is sufficient for the purpose of analysis
+
+> **NOTE: For the below sections I took help of the GPT tool to conceptualize, write and understand the code.**
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+if (nrow(data_apartments) > 0) {
+    # Convert Apartment_Number to numeric, removing NAs if any
+    data_apartments <- data_apartments %>%
+      mutate(Apartment_Number = as.numeric(Apartment_Number)) %>%
+      filter(!is.na(Apartment_Number), Apartment_Number > 0)  # Filter out NA and non-positive numbers
+
+    # Calculate the log of apartment numbers
+    data_apartments <- data_apartments %>%
+      mutate(Log_Apartment_Number = log(Apartment_Number)) %>%
+      filter(!is.infinite(Log_Apartment_Number), !is.na(Log_Apartment_Number))
+
+    # Produce a histogram of the log of the apartment numbers
+    ggplot(data_apartments, aes(x = Log_Apartment_Number)) +
+      geom_histogram(binwidth = 0.5, fill = "blue", color = "black") +
+      labs(title = "Histogram of Log of Apartment Numbers",
+           x = "Log of Apartment Number",
+           y = "Frequency") +
+      theme_minimal()  # Optional: a cleaner theme for the plot
+} else {
+    print("No valid apartment numbers extracted.")
+}
+```
+
+#### 
+5. Examine apartment numbers for Benford's Law
+
+```{r}
+
+if (nrow(data_apartments) > 0) {
+    # Calculate the log of apartment numbers
+    data_apartments <- data_apartments %>%
+      mutate(Log_Apartment_Number = log(Apartment_Number)) %>%
+      filter(!is.infinite(Log_Apartment_Number), !is.na(Log_Apartment_Number))
+
+    
+    ggplot(data_apartments, aes(x = Log_Apartment_Number)) +
+      geom_histogram(binwidth = 0.5, fill = "blue", color = "black") +
+      labs(title = "Histogram of Log of Apartment Numbers",
+           x = "Log of Apartment Number",
+           y = "Frequency") +
+      theme_minimal()  
+    
+    # Extract the leading digit of each apartment number
+    leading_digits <- data_apartments %>%
+      mutate(Leading_Digit = as.numeric(substr(Apartment_Number, 1, 1))) %>%
+      group_by(Leading_Digit) %>%
+      summarise(Count = n()) %>%
+      ungroup()
+
+    # Calculate the expected frequencies according to Benford's Law
+    expected_frequencies <- data.frame(
+      Leading_Digit = 1:9,
+      Expected_Probability = log10((1 + 1/(1:9))),
+      Expected_Count = sum(leading_digits$Count) * log10((1 + 1/(1:9)))
+    )
+    
+    # Combine observed and expected frequencies
+    benford_data <- leading_digits %>%
+      right_join(expected_frequencies, by = "Leading_Digit") %>%
+      mutate(Observed_Count = ifelse(is.na(Count), 0, Count),
+             Leading_Digit = as.factor(Leading_Digit))
+
+    # Plot the observed and expected frequencies
+    ggplot(benford_data, aes(x = Leading_Digit)) +
+      geom_bar(aes(y = Observed_Count), stat = "identity", fill = "blue", alpha = 0.6, position = "dodge") +
+      geom_bar(aes(y = Expected_Count), stat = "identity", fill = "red", alpha = 0.4, position = "dodge") +
+      labs(title = "Benford's Law Comparison",
+           x = "Leading Digit",
+           y = "Count") +
+      scale_y_continuous(labels = scales::comma) +
+      theme_minimal() +
+      geom_text(aes(y = Observed_Count, label = Observed_Count), vjust = -0.5, size = 3) +
+      geom_text(aes(y = Expected_Count, label = round(Expected_Count)), vjust = -0.5, size = 3, color = "red")
+
+} else {
+    print("No valid apartment numbers extracted.")
+}
+```
+
+```{r}
+benford_result <- chisq.test(benford_data$Observed_Count, p = benford_data$Expected_Probability, rescale.p = TRUE)
+    
+    # Conditional check for p-value
+    if (!is.null(benford_result$p.value)) {
+        if (benford_result$p.value < 0.05) {
+            print("Apartment numbers do not follow Benford's Law; they may not represent real data.")
+        } else {
+            print("Apartment numbers appear to follow Benford's Law; they may represent real data.")
+        }
+    } else {
+        print("Benford's Law analysis did not return a valid p-value.")
+    }
+```
+
+#### The code implies that the given numbers might not represent real world data. 
+
+------------------------------------------------------------------------

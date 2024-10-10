@@ -1,0 +1,201 @@
+
+
+# Homework-3
+
+## STATS 506 - VROHATGI
+
+#### `install.packages("haven")`
+
+### Question - 1 - (a)
+
+```{r}
+library(haven)
+library(dplyr)
+
+vix <- read_xpt("VIX_D.XPT")
+
+## ncol(vix) --> 57
+
+demo <- read_xpt("DEMO_D.XPT")
+vision_data <- merge(vix, demo, by = "SEQN")
+nrow(vision_data)
+
+## ncol(vision_data) --> 99 
+## summary.data.frame(vision_data) --> viewed 
+```
+
+```{r}
+str(vision_data)
+```
+
+```{r}
+vision_df<- data.frame(vision_data)
+```
+
+```{r}
+head(vision_df)
+
+```
+
+[**Additionally, here's the mapping of column headers to actual column names :**]{.underline}
+
+|           |                                           |
+|-----------|-------------------------------------------|
+| VIQ110    |  SP has a severe eye infection?           |
+| VIQ121    |  Which eye(s) infected?                   |
+| VIQ130    |  Is SP wearing an eye patch?              |
+| VIQ141    |  Which eye has eye patch?                 |
+| VIQ150    |  Glasses/contact lenses for near work?    |
+| VIQ160    |  Glasses/contact lenses available?        |
+| VIQ170    |  Glasses or contacts worn for near test?  |
+| VIXNC1    |  Line read on near card                   |
+| VIXNC2    |  Testing distance of near card            |
+| VIQ180    |  Eye surgery for near sightedness?        |
+| VIQ191    |  Which eye(s) surgery near sightedness?   |
+| VIQ200    |  Eye surgery for cataracts?               |
+| VIQ211    |  Which eye(s) cataract surgery?           |
+| VIQ220    |  Glasses/contact lenses worn for distance |
+| VIQ230    |  Is distance correction available?        |
+| VIQ240    |  Which type? Glasses or contacts?         |
+| VIQ250    |  Was prescription obtained?               |
+| VIXPRS    |  Prescription, right sphere               |
+| VIXPRC    |  Prescription, right cylinder             |
+| VIXPRA    |  Prescription, right axis                 |
+| VIXPLS    |  Prescription, left sphere                |
+| VIXPLC    |  Prescription, left cylinder              |
+| VIXPLA    |  Prescription, left axis                  |
+| VIXOCMT   |  Visual Acuity Comments                   |
+| VIXORSM   |  OR right sphere, median                  |
+| VIXORCM   |  OR right cylinder, median                |
+| VIXORAM   |  OR right axis, median                    |
+| VIDORFM   |  OR right confidence level reading        |
+| VIXOLSM   |  OR left sphere, median                   |
+| VIXOLCM   |  OR left cylinder, median                 |
+| VIXOLAM   |  OR left axis, median                     |
+| VIDOLFM   |  OR left confidence level reading         |
+| VIXKRM1   |  Right keratometry radius flat curve (mm) |
+| VIXKRD1   |  Right keratometry power flat curve (D)   |
+| VIXKRG1   |  Right keratometry axis flat curve (deg)  |
+| VIXKRM2   |  Right keratometry radius steep curve(mm) |
+| VIXKRD2   |  Right keratometry power steep curve (D)  |
+| VIXKRG2   |  Right keratometry axis steep curve (deg) |
+| VIXKRMM   |  Right keratometry radius, average (mm)   |
+| VIXKRDM   |  Right keratometry power, average (D)     |
+| VIXKRCD   |  Right keratometry cylinder               |
+| VIXKRCG   |  Right keratometry axis (deg)             |
+| VIXKLM1   |  Left keratometry radius flat curve (mm)  |
+| VIXKLD1   |  Left keratometry power flat curve (D)    |
+| VIXKLG1   |  Left keratometry axis flat curve (deg)   |
+| VIXKLM2   |  Left keratometry radius steep curve (mm) |
+| VIXKLD2   |  Left keratometry power steep curve (D)   |
+| VIXKLG2   |  Left keratometry axis steep curve (deg)  |
+| VIXKLMM   |  Left keratometry radius, average (mm)    |
+| VIXKLDM   |  Left keratometry power, average (D)      |
+| VIXKLCD   |  Left keratometry cylinder                |
+| VIXKLCG   |  Left keratometry axis (deg)              |
+| VIDRVA    |  Right visual acuity, presenting          |
+| VIDLVA    |  Left visual acuity, presenting           |
+| VIDROVA   |  Right visual acuity, w/ obj. refraction  |
+| VIDLOVA   |  Left visual acuity, w/ obj. refraction   |
+| SEQN      |  Respondent sequence number               |
+| SDDSRVYR  |  Data Release Number                      |
+| RIDSTATR  |  Interview/Examination Status             |
+| RIDEXMON  |  Six month time period                    |
+| RIAGENDR  |  Gender                                   |
+| RIDAGEYR  |  Age at Screening Adjudicated             |
+| RIDAGEMN  |  Age in Months                            |
+| RIDAGEEX  |  Exam Age in Months                       |
+| RIDRETH1  |  Race/Ethnicity                           |
+| DMQMILIT  |  Veteran/Military Status                  |
+| DMDBORN   |  Country of Birth                         |
+| DMDCITZN  |  Citizenship Status                       |
+| DMDYRSUS  |  Length of time in US                     |
+| DMDEDUC3  |  Education Level                          |
+| DMDEDUC2  |  Education Level                          |
+| DMDSCHOL  |  Now attending school?                    |
+| DMDMARTL  |  Marital Status                           |
+| DMDHHSIZ  |  Total number of people in the Household  |
+| DMDFMSIZ  |  Total number of people in the Family     |
+| INDHHINC  |  Annual Household Income                  |
+| INDFMINC  |  Annual Family Income                     |
+| INDFMPIR  |  Family PIR                               |
+| RIDEXPRG  |  Pregnancy Status at Exam                 |
+| DMDHRGND  |  HH Ref Person Gender                     |
+| DMDHRAGE  |  HH Ref Person Age                        |
+| DMDHRBRN  |  HH Ref Person Country of Birth           |
+| DMDHREDU  |  HH Ref Person Education Level            |
+| DMDHRMAR  |  HH Ref Person Marital Status             |
+| DMDHSEDU  |  HH Ref Person's Spouse Education Level   |
+| SIALANG   |  Language of SP Interview                 |
+| SIAPROXY  |  Proxy used in SP Interview?              |
+| SIAINTRP  |  Interpreter used in SP Interview?        |
+| FIALANG   |  Language of Family Interview             |
+| FIAPROXY  |  Proxy used in Family Interview?          |
+| FIAINTRP  |  Interpreter used in Family Interview?    |
+| MIALANG   |  Language of MEC Interview                |
+| MIAPROXY  |  Proxy used in MEC Interview?             |
+| MIAINTRP  |  Interpreter used in MEC Interview?       |
+| AIALANG   |  Language of ACASI Interview              |
+| WTINT2YR  |  Full Sample 2 Year Interview Weight      |
+| WTMEC2YR  |  Full Sample 2 Year MEC Exam Weight       |
+| SDMVPSU   |  Masked Variance Pseudo                   |
+| SDMVSTRA  |  Masked Variance Pseudo                   |
+
+Now that we've successfully loaded and merged both data sets, we can proceed with the next tasks.
+
+### 1 - (b)
+
+I want to purge any rows for which "**age**" has **not** been recorded **in at least one of these 3 columns**:
+
+[Also assuming here that the difference in these three column values (for a given record) are negligible/trivial.]{.underline}
+
+|          |                              |
+|----------|------------------------------|
+| RIDAGEYR | Age at Screening Adjudicated |
+| RIDAGEMN | Age in Months                |
+| RIDAGEEX | Exam Age in Months           |
+
+```{}
+```
+
+```{r}
+typeof(vision_data)
+```
+
+```{# Check the range of age values}
+range(vision_data["RIDAGEEX"])
+
+# Adjust the breaks based on the range of age values
+# For instance, if age values range from 0 to 120, use that range in cut()
+vision_data$age_bracket <- cut(vision_data$age, breaks = seq(0, 120, by = 10), include.lowest = TRUE)
+
+# Check if the age_bracket column is populated
+table(vision_data$age_bracket)
+
+# Now, calculate the proportions of respondents who wear glasses by age bracket
+glasses_proportion <- vision_data %>%
+  group_by(age_bracket) %>%
+  summarise(
+    total_respondents = n(),
+    wears_glasses = sum(wears_glasses, na.rm = TRUE),
+    proportion_wears_glasses = wears_glasses / total_respondents
+  )
+
+# Display the results
+print(glasses_proportion)
+
+```
+
+```{r}
+age_bracket <- data.frame(vision_data$"RIDAGEMN", breaks = seq(0, 100, by = 10), include.lowest = TRUE)
+table(age_bracket)
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+
+```
+
+![](images/clipboard-4036675010.png)
